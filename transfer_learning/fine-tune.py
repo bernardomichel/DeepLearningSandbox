@@ -51,7 +51,7 @@ def add_new_last_layer(base_model, nb_classes):
   x = GlobalAveragePooling2D()(x)
   x = Dense(FC_SIZE, activation='relu')(x) #new FC layer, random init
   predictions = Dense(nb_classes, activation='softmax')(x) #new softmax layer
-  model = Model(input=base_model.input, output=predictions)
+  model = Model(inputs=base_model.input, outputs=predictions)
   return model
 
 
@@ -74,6 +74,7 @@ def train(args):
   """Use transfer learning and fine-tuning to train a network on a new dataset"""
   nb_train_samples = get_nb_files(args.train_dir)
   nb_classes = len(glob.glob(args.train_dir + "/*"))
+  print(nb_classes)
   nb_val_samples = get_nb_files(args.val_dir)
   nb_epoch = int(args.nb_epoch)
   batch_size = int(args.batch_size)
@@ -101,13 +102,12 @@ def train(args):
   train_generator = train_datagen.flow_from_directory(
     args.train_dir,
     target_size=(IM_WIDTH, IM_HEIGHT),
-    batch_size=batch_size,
+    batch_size=batch_size
   )
-
   validation_generator = test_datagen.flow_from_directory(
     args.val_dir,
     target_size=(IM_WIDTH, IM_HEIGHT),
-    batch_size=batch_size,
+    batch_size=batch_size
   )
 
   # setup model
@@ -118,28 +118,30 @@ def train(args):
   setup_to_transfer_learn(model, base_model)
 
   history_tl = model.fit_generator(
-    train_generator,
-    nb_epoch=nb_epoch,
+    generator = train_generator,
+    epochs=nb_epoch,
     samples_per_epoch=nb_train_samples,
     validation_data=validation_generator,
-    nb_val_samples=nb_val_samples,
-    class_weight='auto')
+    validation_steps=nb_val_samples/batch_size,
+    steps_per_epoch=nb_train_samples/batch_size,
+    class_weight=None    )
 
   # fine-tuning
   setup_to_finetune(model)
 
   history_ft = model.fit_generator(
-    train_generator,
+    generator = train_generator,
     samples_per_epoch=nb_train_samples,
-    nb_epoch=nb_epoch,
+    epochs=nb_epoch,
     validation_data=validation_generator,
-    nb_val_samples=nb_val_samples,
-    class_weight='auto')
+    validation_steps=nb_val_samples/batch_size,
+    class_weight=None
+    )
 
   model.save(args.output_model_file)
 
   if args.plot:
-    plot_training(history_ft)
+    plot_training(history_tl)
 
 
 def plot_training(history):
